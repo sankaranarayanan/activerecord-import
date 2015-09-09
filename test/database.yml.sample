@@ -55,3 +55,7 @@ sqlite3: &sqlite3
 
 spatialite:
   <<: *sqlite3
+
+sqlserver:
+  <<: *common
+  adapter: sqlserver

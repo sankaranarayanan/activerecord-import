@@ -9,12 +9,15 @@ platforms :ruby do
   gem "pg",                     "~> 0.9"
   gem "sqlite3",                "~> 1.3.10"
   gem "seamless_database_pool", "~> 1.0.13"
+  gem "activerecord-sqlserver-adapter", "~>3.2.0"
+  gem "tiny_tds"
 end
 
 platforms :jruby do
   gem "jdbc-mysql"
   gem "jdbc-postgres"
   gem "activerecord-jdbcmysql-adapter"
+  gem "activerecord-jdbcmssql-adapter"
   gem "activerecord-jdbcpostgresql-adapter"
 end
 
