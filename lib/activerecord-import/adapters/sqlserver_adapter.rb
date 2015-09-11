@@ -1,33 +1,45 @@
 module ActiveRecord::Import::SQLServerAdapter
   include ActiveRecord::Import::ImportSupport
 
-  # There is a limit of 1000 rows on the insert method
-  # We need to process it in batches
-  def insert_many( sql, values, *args ) # :nodoc:
-    noidsql = sql.clone[0].gsub(/\[id\],/,"")
-    
+  def insert_many( sql, values, *args )
+    columns_names = sql[0].match(/\((.*)\)/)[1].split(',')
+    sql_id_index  = columns_names.index('[id]')
+    sql_noid      = if sql_id_index.nil?
+      nil
+    else
+      (sql_id_index == (columns_names.length - 1) ? sql.clone[0].gsub(/\[id\]/, '') : sql.clone[0].gsub(/\[id\],/, ''))
+    end
+
     number_of_inserts = 0
     while !(batch = values.shift(1000)).blank? do
-      #If the ID is NULL, insert without the ID column so SQLserver will add it
-      #If we are supplied the id, include it in the column list.
-      nullids =[]
-      suppliedids=[]
-      batch.each do |value|
-        #If the first argument (id) is null remove it.
-        #this is assuming id is first. We should probably check where id is based on the SQL cmd
-        if value.match(/^\(NULL,/) then
-           nullids << value.gsub(/^\(NULL,/,"(")
-        else
-           #we got given the ID so just use this value as is
-           suppliedids << value
-        end
-      end
-      #run two SQL bulk inserts. One in which we remove the NULL ids and let Sqlserver figure them out
-      #the other in which we use the ids as supplied
-      number_of_inserts += super( noidsql.clone, nullids, args ) unless nullids.empty?
-      number_of_inserts += super( sql.clone, suppliedids, args ) unless suppliedids.empty?
-    end
-    number_of_inserts
-  end
+      if sql_id_index
+        null_ids     = []
+        supplied_ids = []
 
+        batch.each do |value|
+          values_sql = value.match(/\((.*)\)/)[1].split(',')
+          if values_sql[sql_id_index] == "NULL"
+            values_sql.delete_at(sql_id_index)
+            null_ids << "(#{values_sql.join(',')})"
+          else
+            supplied_ids << value
+          end
+        end
+
+        unless null_ids.empty?
+          number_of_inserts += 1
+          super( sql_noid.clone, null_ids, args )
+        end
+        unless supplied_ids.empty?
+          number_of_inserts += 1
+          super( sql.clone, supplied_ids, args )
+        end
+      else
+        number_of_inserts += 1
+        super( sql.clone, values, args )
+      end
+    end
+
+    [number_of_inserts, []]
+  end
 end
